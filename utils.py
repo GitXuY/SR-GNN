@@ -5,8 +5,9 @@
 # @File : utils.py
 # @Software: PyCharm
 
-import networkx as nx
+import pickle
 import numpy as np
+import tensorflow as tf
 
 
 def build_graph(train_data):
@@ -48,6 +49,69 @@ def split_validation(train_set, valid_portion):
     train_set_y = [train_set_y[s] for s in sidx[:n_train]]
 
     return (train_set_x, train_set_y), (valid_set_x, valid_set_y)
+
+
+class TFData():
+    def __init__(self, file_path, batch_size, max_seq, shuffle=False):
+        self.batch_size = batch_size
+        self.data_file = pickle.load(open(file_path, "rb"))
+
+        dataset = tf.data.Dataset.from_generator(self.data_generator, output_types=(tf.int32, tf.int32))
+        dataset = dataset.map(self.get_adj)
+        dataset = dataset.padded_batch(batch_size=batch_size, padded_shapes=(
+            [max_seq, max_seq],
+            [max_seq, max_seq],
+            [max_seq],
+            [max_seq],
+            [max_seq],
+            []))
+
+        if shuffle:
+            dataset = dataset.shuffle(100000)
+
+        dataset.prefetch(batch_size)
+        self.dataset = dataset.make_one_shot_iterator()
+
+
+    def data_generator(self):
+        features, labels = self.data_file
+        for i in range(len(features)):
+            yield features[i], labels[i]
+
+    def get_adj(self, features, labels):
+        items, alias_inputs = tf.unique(features)
+
+        vector_length = tf.shape(features)[0]
+        n_nodes = tf.shape(items)[0]
+        indices = tf.gather(alias_inputs, tf.stack([tf.range(vector_length - 1), tf.range(vector_length - 1) + 1],
+                                                   axis=0))  # Stack and stagger values
+        unique_indices, _ = tf.unique(indices[0] * (vector_length + 1) + indices[1])  # unique(a*x + b)
+        unique_indices = tf.sort(unique_indices)  # Sort ascending
+        unique_indices = tf.stack(
+            [tf.floor_div(unique_indices, (vector_length + 1)), tf.floormod(unique_indices, (vector_length + 1))],
+            axis=1)  # Ungroup and stack
+        unique_indices = tf.cast(unique_indices, tf.int64)
+
+        values = tf.ones(tf.shape(unique_indices, out_type=tf.int64)[0], dtype=tf.int64)
+        dense_shape = tf.cast([n_nodes, n_nodes], tf.int64)
+
+        adj = tf.SparseTensor(indices=unique_indices, values=values, dense_shape=dense_shape)
+        adj = tf.sparse.to_dense(adj)
+
+        u_sum_in_tf = tf.math.reduce_sum(adj, 0)
+        u_sum_in_tf = tf.clip_by_value(u_sum_in_tf, 1, tf.reduce_max(u_sum_in_tf))
+        A_in = tf.math.divide(adj, u_sum_in_tf)
+
+        u_sum_out_tf = tf.math.reduce_sum(adj, 1)
+        u_sum_out_tf = tf.clip_by_value(u_sum_out_tf, 1, tf.reduce_max(u_sum_out_tf))
+        A_out = tf.math.divide(tf.transpose(adj), u_sum_out_tf)
+
+        mask = tf.fill(tf.shape(features), 1)
+
+        return A_in, A_out, alias_inputs, items, mask, labels
+
+    def get_batch(self):
+        return next(self.dataset)
 
 
 class Data():
