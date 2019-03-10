@@ -52,26 +52,29 @@ def split_validation(train_set, valid_portion):
 
 
 class TFData():
-    def __init__(self, file_path, batch_size, max_seq, shuffle=False):
+    def __init__(self, file_path, batch_size, shuffle=False):
         self.batch_size = batch_size
         self.data_file = pickle.load(open(file_path, "rb"))
+
+
+        self.dataset_size = len(self.data_file[0])
+        self.max_seq = len(max(self.data_file[0], key=len))
+        self.max_n_node = len(max([np.unique(i) for i in self.data_file[0]], key=len))
 
         dataset = tf.data.Dataset.from_generator(self.data_generator, output_types=(tf.int32, tf.int32))
         dataset = dataset.map(self.get_adj)
         dataset = dataset.padded_batch(batch_size=batch_size, padded_shapes=(
-            [max_seq, max_seq],
-            [max_seq, max_seq],
-            [max_seq],
-            [max_seq],
-            [max_seq],
+            [self.max_n_node, self.max_n_node],
+            [self.max_n_node, self.max_n_node],
+            [self.max_seq],
+            [self.max_seq],
+            [self.max_seq],
             []))
 
         if shuffle:
             dataset = dataset.shuffle(100000)
 
-        dataset.prefetch(batch_size)
-        self.dataset = dataset.make_one_shot_iterator()
-
+        self.dataset = dataset.prefetch(batch_size)
 
     def data_generator(self):
         features, labels = self.data_file
@@ -111,7 +114,8 @@ class TFData():
         return A_in, A_out, alias_inputs, items, mask, labels
 
     def get_batch(self):
-        return next(self.dataset)
+        for i in self.dataset:
+            yield i
 
 
 class Data():

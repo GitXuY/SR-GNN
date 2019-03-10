@@ -9,13 +9,12 @@ Created on July, 2018
 import argparse
 import time
 import csv
-import pickle
 import operator
 import datetime
 import os
-
+import numpy as np
 parser = argparse.ArgumentParser()
-parser.add_argument('--dataset', default='sample', help='dataset name: diginetica/thg')
+parser.add_argument('--dataset', default='thg', help='dataset name: diginetica/thg')
 opt = parser.parse_args()
 print(f'Using the following dataset: {opt.dataset}')
 
@@ -178,24 +177,15 @@ def process_seqs(iseqs, idates):
 
 tr_seqs, tr_dates, tr_labs, tr_ids = process_seqs(tra_seqs, tra_dates)
 te_seqs, te_dates, te_labs, te_ids = process_seqs(tes_seqs, tes_dates)
-tra = (tr_seqs, tr_labs)
-tes = (te_seqs, te_labs)
-print(len(tr_seqs))
-print(len(te_seqs))
-print(tr_seqs[:3], tr_dates[:3], tr_labs[:3])
-print(te_seqs[:3], te_dates[:3], te_labs[:3])
-all = 0
 
-for seq in tra_seqs:
-    all += len(seq)
-for seq in tes_seqs:
-    all += len(seq)
-print('avg length: ', all/(len(tra_seqs) + len(tes_seqs) * 1.0))
 
 if not os.path.exists(f'{opt.dataset}/processed'):
     os.makedirs(f'{opt.dataset}/processed')
-pickle.dump(tra, open(f'{opt.dataset}/processed/train.txt', 'wb'))
-pickle.dump(tes, open(f'{opt.dataset}/processed/test.txt', 'wb'))
-pickle.dump(tra_seqs, open(f'{opt.dataset}/processed/all_train_seq.txt', 'wb'))
+
+for name, data in {"train_features": tr_seqs,
+                   "test_features": te_seqs}.items():
+    with open(f'{opt.dataset}/processed/{name}.csv', "w") as datafile:
+        wr = csv.writer(datafile)
+        wr.writerows(data)
 
 print('Done.')
