@@ -21,7 +21,7 @@ parser.add_argument('--dataset', default='thg', help='dataset name: diginetica/t
 parser.add_argument('--method', type=str, default='ggnn', help='ggnn/gat/gcn')
 parser.add_argument('--validation', action='store_true', help='validation')
 parser.add_argument('--epoch', type=int, default=30, help='number of epochs to train for')
-parser.add_argument('--batchSize', type=int, default=100, help='input batch size')
+parser.add_argument('--batchSize', type=int, default=1000, help='input batch size')
 parser.add_argument('--hiddenSize', type=int, default=100, help='hidden state size')
 parser.add_argument('--l2', type=float, default=1e-5, help='l2 penalty')
 parser.add_argument('--lr', type=float, default=0.001, help='learning rate')
@@ -35,12 +35,10 @@ print('Loading train data.')
 assert(opt.dataset)
 
 print('Processing train data.')
-train_data, n_node, max_n_node, dataset_size, max_seq = train_input_fn(opt.batchSize)
+train_data, n_node, max_n_node, train_dataset_size, max_seq = train_input_fn(opt.batchSize)
 
 print('Processing test data.')
-def get_test_data():
-    for test_batch in eval_input_fn(opt.batchSize, max_seq, max_n_node):
-        yield test_batch
+test_data, test_dataset_size = eval_input_fn(opt.batchSize, max_seq, max_n_node)
 
 print('Loading model.')
 
@@ -48,7 +46,7 @@ model = WholeModel(n_node=n_node,
                 l2=opt.l2,
                 step=opt.step,
                 lr=opt.lr,
-                decay=opt.lr_dc_step * dataset_size / opt.batchSize,
+                decay=opt.lr_dc_step * train_dataset_size / opt.batchSize,
                 lr_dc=opt.lr_dc,
                 hidden_size=opt.hiddenSize,
                 out_size=opt.hiddenSize,
@@ -61,39 +59,50 @@ best_epoch = [0, 0]
 for epoch in range(opt.epoch):
     print('start training: ', datetime.datetime.now())
 
-    pbar = tqdm(total=1000)
     loss_ = []
+    with tqdm(total = np.floor(train_dataset_size/opt.batchSize)+1) as pbar:
+        for batch in train_data:
+            pbar.update(1)
+            A_in, A_out, alias_inputs, items, mask, labels = batch
+            loss, logits = model.train_step(item=items, adj_in=A_in, adj_out=A_out, mask = mask, alias = alias_inputs, labels=labels)
+            pbar.set_description(f"Training model. Epoch: {epoch}")
+            pbar.set_postfix(loss=loss)
 
-    for batch in train_data:
-        pbar.update(1)
+            loss_.append(loss)
 
-        A_in, A_out, alias_inputs, items, mask, labels = batch
-        loss, logits = model.train_step(item=items, adj_in=A_in, adj_out=A_out, mask = mask, alias = alias_inputs, labels=labels)
-        loss_.append(loss)
+    hit, mrr, test_loss_ = [], [], []
+    with tqdm(total = np.floor(test_dataset_size/opt.batchSize)+1) as pbar:
+        for batch in test_data:
+            pbar.update(1)
+            A_in, A_out, alias_inputs, items, mask, labels = batch
+            loss, logits = model.train_step(item=items, adj_in=A_in, adj_out=A_out, mask=mask, alias=alias_inputs, labels=labels, train=False)
+            pbar.set_description(f"Testing model. Epoch: {epoch}")
+            pbar.set_postfix(loss=loss)
+            test_loss_.append(loss)
 
-        test_A_in, test_A_out, test_alias_inputs, test_items, test_mask, test_labels = next(get_test_data())
-        scores, test_loss = model.train_step(item=test_items, adj_in=test_A_in, adj_out=test_A_out, mask=test_mask, alias=test_alias_inputs, labels=test_labels, train=False)
+        # test_A_in, test_A_out, test_alias_inputs, test_items, test_mask, test_labels = next(get_test_data())
+        # scores, test_loss = model.train_step(item=test_items, adj_in=test_A_in, adj_out=test_A_out, mask=test_mask, alias=test_alias_inputs, labels=test_labels, train=False)
 
-        hit, mrr, test_loss_ = [], [], []
-
-        index = np.argsort(scores, 1)[:, -20:]
-        for score, target in zip(index, test_labels):
-            hit.append(np.isin(target - 1, score))
-            if len(np.where(score == target - 1)[0]) == 0:
-                mrr.append(0)
-            else:
-                mrr.append(1 / (20-np.where(score == target - 1)[0][0]))
-        hit = np.mean(hit)*100
-        mrr = np.mean(mrr)*100
-        test_loss = np.mean(test_loss_)
-        if hit >= best_result[0]:
-            best_result[0] = hit
-            best_epoch[0] = epoch
-        if mrr >= best_result[1]:
-            best_result[1] = mrr
-            best_epoch[1]=epoch
-
-        pbar.desc = f"Epoch: {epoch}, train_loss: {loss}, test_loss: {test_loss}, Recall@20: {best_result[0]}, MMR@20: {best_result[1]}"
+        # hit, mrr, test_loss_ = [], [], []
+        #
+        # index = np.argsort(scores, 1)[:, -20:]
+        # for score, target in zip(index, test_labels):
+        #     hit.append(np.isin(target - 1, score))
+        #     if len(np.where(score == target - 1)[0]) == 0:
+        #         mrr.append(0)
+        #     else:
+        #         mrr.append(1 / (20-np.where(score == target - 1)[0][0]))
+        # hit = np.mean(hit)*100
+        # mrr = np.mean(mrr)*100
+        # test_loss = np.mean(test_loss_)
+        # if hit >= best_result[0]:
+        #     best_result[0] = hit
+        #     best_epoch[0] = epoch
+        # if mrr >= best_result[1]:
+        #     best_result[1] = mrr
+        #     best_epoch[1]=epoch
+        # pbar.desc = f"Epoch: {epoch}, train_loss: {loss}, test_loss: {test_loss}"
+        # pbar.desc = f"Epoch: {epoch}, train_loss: {loss}, test_loss: {test_loss}, Recall@20: {best_result[0]}, MMR@20: {best_result[1]}"
 
     print(np.mean(loss_))
 

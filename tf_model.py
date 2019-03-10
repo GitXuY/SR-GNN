@@ -73,6 +73,8 @@ def eval_input_fn(batch_size, max_seq, max_n_node):
     with open("datasets/thg/processed/test.csv", "r") as data_file:
         data = [list(map(int, rec)) for rec in csv.reader(data_file, delimiter=',')]
 
+    dataset_size = len(data)
+
     dataset = tf.data.Dataset.from_generator(partial(data_generator, data), output_types=(tf.int32))
     dataset = dataset.map(process_data)
 
@@ -84,8 +86,8 @@ def eval_input_fn(batch_size, max_seq, max_n_node):
         [max_seq],
         []))
 
-    dataset = dataset.repeat().prefetch(batch_size)
-    return dataset
+    dataset = dataset.prefetch(batch_size)
+    return dataset, dataset_size
 
 def my_model_fn(features, labels, mode):
     if mode == tf.estimator.ModeKeys.PREDICT:
@@ -146,7 +148,3 @@ def my_model_fn(features, labels, mode):
     for var in tf.trainable_variables():
         tf.summary.histogram(var.name, var)
     return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
-
-# classifier = tf.estimator.Estimator(
-#     model_fn=my_model_fn,
-#     model_dir=PATH)

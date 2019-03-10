@@ -91,9 +91,6 @@ class WholeModel(object):
 
         self.B = tf.Variable(tf.random.uniform((2 * self.out_size, self.out_size), -self.stdv, self.stdv), name='B', dtype=tf.float32)
 
-        # self.loss_train, _ = self.forward(self.ggnn())
-        # self.loss_test, self.score_test = self.forward(self.ggnn(), train=False)
-
         self.learning_rate = tf.optimizers.schedules.ExponentialDecay(lr, decay, decay_rate=lr_dc, staircase=True)
 
         self.opt = tf.optimizers.Adam(self.learning_rate)
@@ -105,7 +102,7 @@ class WholeModel(object):
         with tf.GradientTape() as tape:
             loss, logits = self.forward(item, adj_in, adj_out, mask, alias, labels, train)
             grads = tape.gradient(loss, variables)
-            self.opt.apply_gradients(zip(grads, variables))
+            if train: self.opt.apply_gradients(zip(grads, variables))
 
         return loss, logits
 
@@ -149,11 +146,13 @@ class WholeModel(object):
         y1 = tf.matmul(ma, self.B)
         logits = tf.matmul(y1, b, transpose_b=True)
 
-        loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=labels - 1, logits=logits))
+        softmax = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=labels - 1, logits=logits)
+        loss = tf.reduce_mean(softmax)
 
         if train:
             variables = [self.nasr_w1, self.nasr_w2, self.nasr_b, self.nasr_v, self.W_in, self.b_in, self.W_out, self.b_out, self.B, self.embedding]
-            lossL2 = tf.add_n([tf.nn.l2_loss(v) for v in variables]) * self.L2
+            l2_losses = [tf.nn.l2_loss(v) for v in variables]
+            lossL2 = tf.add_n(l2_losses) * self.L2
             loss = loss + lossL2
 
         return loss, logits
