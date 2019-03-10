@@ -86,7 +86,7 @@ def eval_input_fn(batch_size):
         [max_seq],
         []))
 
-    dataset = dataset.prefetch(batch_size)
+    dataset = dataset.repeat().prefetch(batch_size)
     return dataset
 
 def my_model_fn(features, labels, mode):

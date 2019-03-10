@@ -11,6 +11,8 @@ from tf_model import train_input_fn, eval_input_fn
 import argparse
 import datetime
 import numpy as np
+from tqdm import tqdm
+import tensorflow as tf
 
 # os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
@@ -31,31 +33,19 @@ opt = parser.parse_args()
 
 print('Loading train data.')
 assert(opt.dataset)
-# train_data = pickle.load(open('datasets/' + opt.dataset + '/processed/train.txt', 'rb'))
-# print('Loading test data.')
-# test_data = pickle.load(open('datasets/' + opt.dataset + '/processed/test.txt', 'rb'))
-
-# print('Loading number of nodes.')
-# n_node=0
-# with open('datasets/' + opt.dataset + '/processed/all_train_seq.txt', 'rb') as file:
-#     n_node = len(np.unique(np.hstack(pickle.load(file))))+1
-# print(f'Dataset has {n_node} unique nodes.')
 
 print('Processing train data.')
-# train_data = Data(train_data, sub_graph=True, method=opt.method, shuffle=True)
 train_data, n_node, dataset_size, max_seq  = train_input_fn(opt.batchSize)
 
-# train_data = TFData(f'../datasets/{opt.dataset}/processed/train.txt')
-
 print('Processing test data.')
-# test_data = Data(test_data, sub_graph=True, method=opt.method, shuffle=False)
-test_data =eval_input_fn(opt.batchSize)
-
+test_data = eval_input_fn(opt.batchSize)
+def get_test_data():
+    for i in test_data:
+        yield i
 
 print('Loading model.')
 
-model = WholeModel(max_seq = max_seq,
-                n_node=n_node,
+model = WholeModel(n_node=n_node,
                 l2=opt.l2,
                 step=opt.step,
                 lr=opt.lr,
@@ -63,23 +53,50 @@ model = WholeModel(max_seq = max_seq,
                 lr_dc=opt.lr_dc,
                 hidden_size=opt.hiddenSize,
                 out_size=opt.hiddenSize,
-                batch_size=opt.batchSize,
-                nonhybrid=opt.nonhybrid)
+                batch_size=opt.batchSize)
 
-print(opt)
 best_result = [0, 0]
 best_epoch = [0, 0]
 
 
 for epoch in range(opt.epoch):
-    print('epoch: ', epoch, '===========================================')
     print('start training: ', datetime.datetime.now())
+
+    pbar = tqdm(total=1000)
     loss_ = []
 
-    for batch in train_data.take(10):
+    for batch in train_data:
+        pbar.update(1)
+
         A_in, A_out, alias_inputs, items, mask, labels = batch
-        loss = model.train_step(item=items, adj_in=A_in, adj_out=A_out, mask = mask, alias = alias_inputs, labels=labels)
+        loss, logits = model.train_step(item=items, adj_in=A_in, adj_out=A_out, mask = mask, alias = alias_inputs, labels=labels)
         loss_.append(loss)
+
+        test_batch = get_test_data()
+        test_A_in, test_A_out, test_alias_inputs, test_items, test_mask, test_labels = test_batch
+        scores, test_loss = model.train_step(item=test_items, adj_in=test_A_in, adj_out=test_A_out, mask=test_mask, alias=test_alias_inputs, labels=test_labels, train=False)
+
+        hit, mrr, test_loss_ = [], [], []
+
+        index = np.argsort(scores, 1)[:, -20:]
+        for score, target in zip(index, test_labels):
+            hit.append(np.isin(target - 1, score))
+            if len(np.where(score == target - 1)[0]) == 0:
+                mrr.append(0)
+            else:
+                mrr.append(1 / (20-np.where(score == target - 1)[0][0]))
+        hit = np.mean(hit)*100
+        mrr = np.mean(mrr)*100
+        test_loss = np.mean(test_loss_)
+        if hit >= best_result[0]:
+            best_result[0] = hit
+            best_epoch[0] = epoch
+        if mrr >= best_result[1]:
+            best_result[1] = mrr
+            best_epoch[1]=epoch
+
+        pbar.desc = f"Epoch: {epoch}, train_loss: {loss}, test_loss: {test_loss}, Recall@20: {best_result[0]}, MMR@20: {best_result[1]}"
+
     print(np.mean(loss_))
 
 
