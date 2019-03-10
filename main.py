@@ -109,4 +109,4 @@ for epoch in range(opt.epoch):
         best_result[1] = mrr
         best_epoch[1] = epoch
 
-    print(f"train_loss: {train_loss}, test_loss: {test_loss}, Recall@20: {best_result[0]}, MMR@20: {best_result[1]}, Epoch: {best_epoch[0]}:{best_epoch[1]}")
+    print(f"train_loss: {train_loss}, test_loss: {test_loss}, Recall@20: {best_result[0]}, MMR@20: {best_result[1]}, Best epoch: {best_epoch[0]}:{best_epoch[1]}")

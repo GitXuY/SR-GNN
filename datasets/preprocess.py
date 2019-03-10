@@ -12,7 +12,6 @@ import csv
 import operator
 import datetime
 import os
-import numpy as np
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', default='thg', help='dataset name: diginetica/thg')
 opt = parser.parse_args()
@@ -27,7 +26,6 @@ with open(dataset, "r") as f:
     reader = csv.DictReader(f, delimiter=',')
     if opt.dataset == 'diginetica':
         reader = csv.DictReader(f, delimiter=';')
-
 
     sess_clicks = {}
     sess_date = {}
