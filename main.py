@@ -35,13 +35,12 @@ print('Loading train data.')
 assert(opt.dataset)
 
 print('Processing train data.')
-train_data, n_node, dataset_size, max_seq  = train_input_fn(opt.batchSize)
+train_data, n_node, max_n_node, dataset_size, max_seq = train_input_fn(opt.batchSize)
 
 print('Processing test data.')
-test_data = eval_input_fn(opt.batchSize)
 def get_test_data():
-    for i in test_data:
-        yield i
+    for test_batch in eval_input_fn(opt.batchSize, max_seq, max_n_node):
+        yield test_batch
 
 print('Loading model.')
 
@@ -72,8 +71,7 @@ for epoch in range(opt.epoch):
         loss, logits = model.train_step(item=items, adj_in=A_in, adj_out=A_out, mask = mask, alias = alias_inputs, labels=labels)
         loss_.append(loss)
 
-        test_batch = get_test_data()
-        test_A_in, test_A_out, test_alias_inputs, test_items, test_mask, test_labels = test_batch
+        test_A_in, test_A_out, test_alias_inputs, test_items, test_mask, test_labels = next(get_test_data())
         scores, test_loss = model.train_step(item=test_items, adj_in=test_A_in, adj_out=test_A_out, mask=test_mask, alias=test_alias_inputs, labels=test_labels, train=False)
 
         hit, mrr, test_loss_ = [], [], []
