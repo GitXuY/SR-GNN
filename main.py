@@ -21,7 +21,7 @@ parser.add_argument('--dataset', default='thg', help='dataset name: diginetica/t
 parser.add_argument('--method', type=str, default='ggnn', help='ggnn/gat/gcn')
 parser.add_argument('--validation', action='store_true', help='validation')
 parser.add_argument('--epoch', type=int, default=30, help='number of epochs to train for')
-parser.add_argument('--batchSize', type=int, default=1000, help='input batch size')
+parser.add_argument('--batchSize', type=int, default=100, help='input batch size')
 parser.add_argument('--hiddenSize', type=int, default=100, help='hidden state size')
 parser.add_argument('--l2', type=float, default=1e-5, help='l2 penalty')
 parser.add_argument('--lr', type=float, default=0.001, help='learning rate')
@@ -105,37 +105,4 @@ for epoch in range(opt.epoch):
         # pbar.desc = f"Epoch: {epoch}, train_loss: {loss}, test_loss: {test_loss}, Recall@20: {best_result[0]}, MMR@20: {best_result[1]}"
 
     print(np.mean(loss_))
-
-
-    # for i, j in zip(slices, np.arange(len(slices))):
-    #     adj_in, adj_out, alias, item, mask, targets = train_data.get_slice(i)
-    #     _, loss, _ = model.run(fetches, targets, item, adj_in, adj_out, alias,  mask)
-    #     loss_.append(loss)
-    # loss = np.mean(loss_)
-    # slices = test_data.generate_batch(model.batch_size)
-    # print('start predicting: ', datetime.datetime.now())
-    # hit, mrr, test_loss_ = [], [],[]
-    # for i, j in zip(slices, np.arange(len(slices))):
-    #     adj_in, adj_out, alias, item, mask, targets = test_data.get_slice(i)
-    #     scores, test_loss = model.run([model.score_test, model.loss_test], targets, item, adj_in, adj_out, alias,  mask)
-    #     test_loss_.append(test_loss)
-    #     index = np.argsort(scores, 1)[:, -20:]
-    #     for score, target in zip(index, targets):
-    #         hit.append(np.isin(target - 1, score))
-    #         if len(np.where(score == target - 1)[0]) == 0:
-    #             mrr.append(0)
-    #         else:
-    #             mrr.append(1 / (20-np.where(score == target - 1)[0][0]))
-    # hit = np.mean(hit)*100
-    # mrr = np.mean(mrr)*100
-    # test_loss = np.mean(test_loss_)
-    # if hit >= best_result[0]:
-    #     best_result[0] = hit
-    #     best_epoch[0] = epoch
-    # if mrr >= best_result[1]:
-    #     best_result[1] = mrr
-    #     best_epoch[1]=epoch
-    # print('train_loss:\t%.4f\ttest_loss:\t%4f\tRecall@20:\t%.4f\tMMR@20:\t%.4f\tEpoch:\t%d,\t%d'%
-    #       (loss, test_loss, best_result[0], best_result[1], best_epoch[0], best_epoch[1]))
-
 

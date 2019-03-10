@@ -163,27 +163,24 @@ tes_ids, tes_dates, tes_seqs = obtian_tes()
 def process_seqs(iseqs, idates):
     out_seqs = []
     out_dates = []
-    labs = []
     ids = []
     for id, seq, date in zip(range(len(iseqs)), iseqs, idates):
         for i in range(1, len(seq)):
-            tar = seq[-i]
-            labs += [tar]
-            out_seqs += [seq[:-i]]
+            out_seqs.append(seq[:-i]+[seq[-i]])
             out_dates += [date]
             ids += [id]
-    return out_seqs, out_dates, labs, ids
+    return out_seqs, out_dates, ids
 
 
-tr_seqs, tr_dates, tr_labs, tr_ids = process_seqs(tra_seqs, tra_dates)
-te_seqs, te_dates, te_labs, te_ids = process_seqs(tes_seqs, tes_dates)
+tr_seqs, tr_dates, tr_ids = process_seqs(tra_seqs, tra_dates)
+te_seqs, te_dates, te_ids = process_seqs(tes_seqs, tes_dates)
 
 
 if not os.path.exists(f'{opt.dataset}/processed'):
     os.makedirs(f'{opt.dataset}/processed')
 
-for name, data in {"train_features": tr_seqs,
-                   "test_features": te_seqs}.items():
+for name, data in {"train": tr_seqs,
+                   "test": te_seqs}.items():
     with open(f'{opt.dataset}/processed/{name}.csv', "w") as datafile:
         wr = csv.writer(datafile)
         wr.writerows(data)
