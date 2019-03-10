@@ -66,11 +66,10 @@ import math
 
 
 class WholeModel(object):
-    def __init__(self, n_node, l2, step, lr, decay, lr_dc, hidden_size=100, out_size=100, batch_size=100):
+    def __init__(self, n_node, l2, step, lr, decay, lr_dc, hidden_size=100, out_size=100):
 
         self.hidden_size = hidden_size
         self.out_size = out_size
-        self.batch_size = batch_size
         self.n_node = n_node
         self.L2 = l2
         self.step = step
@@ -97,6 +96,8 @@ class WholeModel(object):
 
     def train_step(self, item, adj_in, adj_out, mask, alias, labels, train=True):
 
+        self.batch_size = tf.shape(item)[0]
+
         variables = [self.nasr_w1, self.nasr_w2, self.nasr_b, self.nasr_v, self.W_in, self.b_in, self.W_out, self.b_out, self.B, self.embedding]
 
         with tf.GradientTape() as tape:
@@ -117,14 +118,14 @@ class WholeModel(object):
 
         for i in range(self.step):
             fin_state = tf.reshape(fin_state, [self.batch_size, -1, self.out_size])
-            fin_state_in = tf.reshape(tf.matmul(tf.reshape(fin_state, [-1, self.out_size]),
-                                                self.W_in) + self.b_in, [self.batch_size, -1, self.out_size])
-            fin_state_out = tf.reshape(tf.matmul(tf.reshape(fin_state, [-1, self.out_size]),
-                                                 self.W_out) + self.b_out, [self.batch_size, -1, self.out_size])
+            fin_state_in = tf.reshape(tf.matmul(tf.reshape(fin_state, [-1, self.out_size]), self.W_in) + self.b_in, [self.batch_size, -1, self.out_size])
+            fin_state_out = tf.reshape(tf.matmul(tf.reshape(fin_state, [-1, self.out_size]), self.W_out) + self.b_out, [self.batch_size, -1, self.out_size])
 
             av = tf.concat([tf.matmul(adj_in, fin_state_in), tf.matmul(adj_out, fin_state_out)], axis=-1)
 
-            state_output, fin_state = tf.compat.v1.nn.dynamic_rnn(cell, tf.expand_dims(tf.reshape(av, [-1, 2*self.out_size]), axis=1), initial_state=tf.reshape(fin_state, [-1, self.out_size]))
+            state_output, fin_state = tf.compat.v1.nn.dynamic_rnn(cell=cell,
+                                                                  inputs=tf.expand_dims(tf.reshape(av, [-1, 2 * self.out_size]), axis=1),
+                                                                  initial_state=tf.reshape(fin_state,[-1, self.out_size]))
 
         re_embedding = tf.reshape(fin_state, [self.batch_size, -1, self.out_size])
 

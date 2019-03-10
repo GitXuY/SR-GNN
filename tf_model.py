@@ -44,14 +44,9 @@ def process_data(row):
     return A_in, A_out, alias_inputs, items, mask, labels
 
 
-def train_input_fn(batch_size):
+def train_input_fn(batch_size, max_seq, max_n_node):
     with open("datasets/thg/processed/train.csv", "r") as data_file:
         data = [list(map(int, rec)) for rec in csv.reader(data_file, delimiter=',')]
-
-    n_node = np.amax([np.amax(z) for z in data])
-    max_seq = len(max(data, key=len))
-    max_n_node = len(max([np.unique(i) for i in data], key=len))
-    dataset_size = len(data)
 
     dataset = tf.data.Dataset.from_generator(partial(data_generator, data), output_types=(tf.int32))
     dataset = dataset.map(process_data)
@@ -67,13 +62,11 @@ def train_input_fn(batch_size):
         []))
 
     dataset = dataset.prefetch(batch_size)
-    return dataset, n_node, max_n_node, dataset_size, max_seq
+    return dataset
 
 def eval_input_fn(batch_size, max_seq, max_n_node):
     with open("datasets/thg/processed/test.csv", "r") as data_file:
         data = [list(map(int, rec)) for rec in csv.reader(data_file, delimiter=',')]
-
-    dataset_size = len(data)
 
     dataset = tf.data.Dataset.from_generator(partial(data_generator, data), output_types=(tf.int32))
     dataset = dataset.map(process_data)
@@ -87,7 +80,7 @@ def eval_input_fn(batch_size, max_seq, max_n_node):
         []))
 
     dataset = dataset.prefetch(batch_size)
-    return dataset, dataset_size
+    return dataset
 
 def my_model_fn(features, labels, mode):
     if mode == tf.estimator.ModeKeys.PREDICT:
