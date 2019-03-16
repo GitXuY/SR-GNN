@@ -44,6 +44,17 @@ with open(f"datasets/{opt.dataset}/processed/test.csv", "r") as data_file:
     max_n_node = max(max_n_node,len(max([np.unique(i) for i in data], key=len)))
     test_dataset_size = len(data)
 
+print("=== Train dataset ===")
+print("Dataset size:", train_dataset_size)
+
+print("=== Test dataset ===")
+print("Dataset size:", test_dataset_size)
+
+print("=== Both datasets ===")
+print("Longest sequence:", max_seq)
+print("Total unique items:", n_node)
+print("Highest number of unique items in a session:", max_n_node)
+
 
 print('Processing train data.')
 train_data = train_input_fn(opt.batchSize, max_seq, max_n_node)

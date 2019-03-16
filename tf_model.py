@@ -49,7 +49,7 @@ def train_input_fn(batch_size, max_seq, max_n_node):
         data = [list(map(int, rec)) for rec in csv.reader(data_file, delimiter=',')]
 
     dataset = tf.data.Dataset.from_generator(partial(data_generator, data), output_types=(tf.int32))
-    dataset = dataset.map(process_data)
+    dataset = dataset.map(process_data, num_parallel_calls=tf.data.experimental.AUTOTUNE)
     #TODO: Don't forget to enable shuffle
     # dataset = dataset.shuffle(100000)
 
@@ -61,7 +61,7 @@ def train_input_fn(batch_size, max_seq, max_n_node):
         [max_seq],
         []))
 
-    dataset = dataset.prefetch(batch_size)
+    dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
     return dataset
 
 def eval_input_fn(batch_size, max_seq, max_n_node):
@@ -69,7 +69,7 @@ def eval_input_fn(batch_size, max_seq, max_n_node):
         data = [list(map(int, rec)) for rec in csv.reader(data_file, delimiter=',')]
 
     dataset = tf.data.Dataset.from_generator(partial(data_generator, data), output_types=(tf.int32))
-    dataset = dataset.map(process_data)
+    dataset = dataset.map(process_data, num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
     dataset = dataset.padded_batch(batch_size=batch_size, padded_shapes=(
         [max_n_node, max_n_node],
@@ -79,7 +79,7 @@ def eval_input_fn(batch_size, max_seq, max_n_node):
         [max_seq],
         []))
 
-    dataset = dataset.prefetch(batch_size)
+    dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
     return dataset
 
 def my_model_fn(features, labels, mode):
